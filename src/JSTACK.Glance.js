@@ -22,13 +22,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
+var http = require('http'),
+    fs = require('fs');
+
 // JStack Glance Module
 // ------------------
 
 // This module provides Glance API functions.
 JSTACK.Glance = (function(JS, undefined) {
     "use strict";
-    var params, check, getVersion, configure, getimagelist, getimagedetail, updateimage;
+    var params, check, getVersion, configure, getimagelist, getimagedetail, updateimage, downloadimage;
 
     // This modules stores the `url`to which it will send every
     // request.
@@ -221,6 +224,46 @@ JSTACK.Glance = (function(JS, undefined) {
             break;
         }
     };
+
+    // This operation download the image specified by its `id`.
+    // In [Download Image](http://api.openstack.org/api-ref.html)
+    // there is more information.
+    downloadimage = function(id, target, callback, error, region) {
+        var url, onOK, onError;
+
+        if (!check(region)) {
+            return;
+        }
+
+        url = require('url').parse(params.url + '/v1/images/' + id);
+
+        var file = fs.createWriteStream(target);
+        var options = {
+            hostname: url.hostname,
+            port: url.port,
+            path: url.path,
+            headers: {
+                'X-Auth-Token': JS.Keystone.params.token
+            }
+        };
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        var request = http.get(options, function(response) {
+            response.on('end', onOK);
+            response.pipe(file);
+        }).on('error', onError);
+    };
     // Public Functions and Variables
     // ------------------------------
     // This is the list of available public functions and variables
@@ -231,6 +274,7 @@ JSTACK.Glance = (function(JS, undefined) {
         getimagelist: getimagelist,
         getimagedetail: getimagedetail,
         updateimage: updateimage,
+        downloadimage: downloadimage,
         getVersion: getVersion
     };
 
